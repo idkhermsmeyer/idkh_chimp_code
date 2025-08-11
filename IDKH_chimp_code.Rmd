@@ -1,0 +1,1974 @@
+---
+title: "IDKH_chimp_code"
+author: "Isabel Hermsmeyer"
+date: "2025-08-11"
+output: html_document
+---
+
+```{r chimp global}
+install.packages("ggplot2")
+install.packages("AICcmodavg")
+install.packages("performance")
+install.packages("coefplot")
+install.packages("sjPlot")
+install.packages("arm")
+install.packages("broom")
+install.packages("rethinking", repos = "http://maciek.ress.pl/R", type = "source")
+install.packages("ggpmisc") 
+install.packages("broom.mixed")
+install.packages("interactions")
+install.packages("gghalves")
+library(interactions)
+library(ggplot2)
+library(RColorBrewer)
+library(AICcmodavg)
+library(performance)
+library(coefplot)
+library(sjPlot)
+library(arm)
+library(broom)
+library(ggpmisc) 
+library(broom.mixed)
+library(gridExtra)
+library(cowplot)
+library(performance)
+library(dplyr)
+library(mgcv)
+library(patchwork)
+library(ggpmisc)
+library(gghalves)
+library(tidyr)
+
+setwd("C:/Users/isabe/OneDrive - Umich/Documents/MSmanuscript")
+
+chimp_data <- read.csv("Chimp_data_20250325_worldclim_fin_SEA.csv")
+chimp_data
+
+zMAT <- scale(chimp_data$MAT)
+zMAP <- scale(chimp_data$MAP)
+zPTCmean <- scale(chimp_data$treeCoverMean)
+zPTCm <- scale(chimp_data$treeCoverMax)
+zPTCmedian <- scale(chimp_data$treeCoverMedian)
+zPTCmin <- scale(chimp_data$treeCoverMin)
+zPTCmode <- scale(chimp_data$treeCoverMode)
+zPE <- scale(chimp_data$percEvergreen)
+zST <- scale(chimp_data$Temp_seasonality)
+zEL <- scale(chimp_data$Elevation)
+zNS <- scale(chimp_data$Niche_space)
+zSP <- scale(chimp_data$Seasonality_Precipitation)
+
+
+chimp_groups <- c("Fongoli", "Solo", "Comoe", "Tenkere", "Bhukalai", "Issa", 
+                  "Nguye", "Kasakati", "Kalande", "Kasekela", "Mitumba", "Ishasha",  
+                   "Ngogo", "Ganta", "Tai", "Loango", "Kalinzu")
+chimp_data$Group <- factor(chimp_data$Group, levels = chimp_groups)
+
+group_colors <- c(
+  "Kalande" = "#B22222", "Kasekela" = "#A9BA9D", "Mitumba" = "#87A96B",
+  "Bhukalai" = "#DAA520", "Issa" = "#FF4500", "Nguye" = "#CD853F",
+  "Kasakati" = "#A0522D", "Solo" = "#FF8C00", "Comoe" = "#D95F02",
+  "Tenkere" = "#800000", "Fongoli" = "#8B4513", "Ishasha" = "#A2B627", 
+  "Ngogo" = "#66A96B", "Ganta" = "#006400", "Tai" = "#1F6E4A",  
+  "Loango" = "#1C5F40", "Kalinzu" = "#6B8E23"
+)
+
+group_shapes <- c(
+  "Kalande" = 15, "Kasekela" = 17, "Mitumba" = 16, "Bhukalai" = 0,
+  "Issa" = 2, "Nguye" = 3, "Kasakati" = 7, "Solo" = 8, "Comoe" = 4,
+  "Tenkere" = 5, "Fongoli" = 6, "Ishasha" = 18, "Ngogo" = 10, 
+  "Ganta" = 13, "Tai" = 12, "Loango" = 14, "Kalinzu" = 1
+)
+```
+
+```{r d13C mmodels}
+
+m1 <- lmer(d13C ~ zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m2 <- lmer(d13C ~ zMAT + (1 | Group), data = chimp_data, REML = FALSE)
+m3 <- lmer(d13C ~ zEL + (1 | Group), data = chimp_data, REML = FALSE)
+m4 <- lmer(d13C ~ zPTCm  + (1 | Group), data = chimp_data, REML = FALSE)
+m5 <- lmer(d13C ~ zSP + (1 | Group), data = chimp_data, REML = FALSE)
+m12 <- lmer(d13C ~ zPE + (1 | Group), data = chimp_data, REML = FALSE)
+m6 <- lmer(d13C ~ zPTCm + zSP + (1 | Group), data = chimp_data, REML = FALSE)
+m7 <- lmer(d13C ~ zPTCm + zMAP + (1 | Group), data = chimp_data, REML = FALSE)  
+m8 <- lmer(d13C ~ zPTCm * zSP + (1 | Group), data = chimp_data, REML = FALSE)
+m9 <- lmer(d13C ~ zPTCm * zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m10 <- lmer(d13C ~ zPTCm * zSP + zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m11 <- lmer(d13C ~ zPTCm + zMAP + zSP * zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m13 <- lmer(d13C ~ zPE + zSP + (1 | Group), data = chimp_data, REML = FALSE)
+m14 <- lmer(d13C ~ zPE * zSP + (1 | Group), data = chimp_data, REML = FALSE)
+m15 <- lmer(d13C ~ zPE + zSP + zPTCm + (1 | Group), data = chimp_data, REML = FALSE)
+
+
+aictab(cand.set = list(m1 = m1, m2 = m2, m3 = m3, m4 = m4, m5 = m5, m12 = m12))
+
+aictab(cand.set = list(m1 = m1, m2 = m2, m3 = m3, m4 = m4, m5 = m5, m6 = m6, m7 = m7, m8 = m8, m9 = m9, m10 = m10, m11 = m11, m13 = m13, m14 = m14, m15 = m15))
+
+plot_model(m11, type = "est")
+plot_model(m13, type = "est")
+plot_model(m9, type = "est")
+plot_model(m11, type = "est")
+plot_model(m8, type = "est")
+interact_plot(m12, pred = zPTCm, modx = zMAP)
+interact_plot(m12, pred = zPTCm, modx = zSP)
+interact_plot(m12, pred = zMAP, modx = zSP)
+cor(zMAT, zEL)
+plot(zMAT ~ zEL)
+plot(zMAP ~ zPTC)
+plot(d13C ~ zPE, data = chimp_data)
+
+interact_plot(
+  m10,
+  pred = zPTCm,
+  modx = zMAP,
+  mod2 = zSP,
+  plot.points = TRUE,
+  interval = TRUE,
+  int.width = 0.95,
+  mod2.labels = c("Low SP", "High SP")  
+)
+
+
+summary(m5)
+interact_plot(m5, pred = zMAP, modx = zMAT)
+
+plot_model(m5, type = "est")
+plot_model(m1, type = "est")
+plot_model(list(m5, m1), type = "est", grid = TRUE)
+
+```
+
+```{r d13C coefplot and interaction plot}
+combine_CIs <- function(m, model_name) {
+  tidy(m, effects = "fixed", conf.int = TRUE, conf.level = 0.95) %>%
+    filter(term %in% c("zPTCm", "zMAP", "zSP", "zMAP:zSP")) %>%
+    rename(estimate = estimate, se = std.error, stat = statistic,
+           CI_95_low = conf.low, CI_95_high = conf.high) %>%
+    left_join(
+      tidy(m, effects = "fixed", conf.int = TRUE, conf.level = 0.50) %>%
+        filter(term %in% c("zPTCm", "zMAP", "zSP", "zMAP:zSP")) %>%
+        dplyr::select(term, CI_50_low = conf.low, CI_50_high = conf.high),
+      by = "term"
+    ) %>%
+    mutate(Model = model_name)
+}
+
+coef_df <- bind_rows(
+  combine_CIs(m11, "m11"),
+  combine_CIs(m4, "m4"),
+  combine_CIs(m9, "m9")
+)
+
+coef_df$Model <- factor(coef_df$Model, levels = c("m9", "m4", "m11"))
+
+coef_df <- coef_df %>%
+  mutate(term = factor(term, levels = c("zMAP:zSP", "zSP", "zMAP", "zPTCm")))
+
+dodge <- position_dodge(width = 0.6)
+model_colors <- c("m9" = "#20B2AA", "m4" = "#5a9bd4", "m11" = "#2E8B57")
+
+d13C_models_coef <- ggplot(coef_df, aes(x = term, y = estimate, color = Model)) +
+  geom_errorbar(aes(ymin = CI_95_low, ymax = CI_95_high),
+                width = 0, size = 0.5, alpha = 0.6, position = dodge) +
+  geom_errorbar(aes(ymin = CI_50_low, ymax = CI_50_high),
+                width = 0, size = 1.5, position = dodge) +
+  geom_point(position = dodge, size = 2.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  coord_flip() +
+  scale_color_manual(values = model_colors) +
+  scale_x_discrete(labels = c(
+    "zPTCm" = "Max Canopy Cover",
+    "zMAP" = "Precipitation",
+    "zSP" = "Precip. Seasonality",
+    "zMAT" = "Temperature",
+    "zMAP:zSP" = "Precipitation \n× Precip. Seasonality"
+  )) +
+  labs(x = NULL, y = "Estimate", title = expression(delta^{13}*C)) +
+  scale_y_continuous(limits = c(-2.5, 2.5)) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "none",
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    plot.title = element_text(hjust = 0.05, size = 15)
+  ) + 
+  annotate("point", x = 4.4, y = 0.3, color = "#2E8B57", size = 3) +
+  annotate("text", x = 4.4, y = 0.4, label = "m11: ΔAIC = 0.00, ω = 0.89", hjust = 0, size = 4) +
+  annotate("point", x = 4.2, y = 0.3, color = "#5a9bd4", size = 3) +
+  annotate("text", x = 4.2, y = 0.4, label = "m04: ΔAIC = 5.30, ω = 0.03", hjust = 0, size = 4) +
+  annotate("point", x = 4, y = 0.3, color = "#20B2AA", size = 3) +
+  annotate("text", x = 4, y = 0.4, label = "m09: ΔAIC = 5.51, ω = 0.03", hjust = 0, size = 4)
+
+d13C_models_coef
+ 
+
+ggsave("d13C_models_coef.png", plot = d13C_models_coef, 
+       width = 6.5, height = 4,  
+       dpi = 400) 
+
+
+d13c_int3 <- interact_plot(
+  m11, pred = zMAP, modx = zSP, 
+  legend.main = "Precip. \nSeasonality",
+  modx.labels = c("Low -1 SD", "Mean", "High +1 SD"),
+  interval = TRUE,
+  partial.residuals = TRUE,
+  colors = c("#a1d99b", "#41ab5d", "#006d2c")
+) +
+  labs(
+    title = "Precipitation × Precip. Seasonality",
+    x = "Precipitation (z-score)",
+    y = expression(paste(delta^{13}, "C (\u2030)")),
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    plot.title = element_text(size = 12, hjust = 0.5)
+  )
+d13c_int3
+
+ggsave("d13c_int3.png", plot = d13c_int3, 
+       width = 6, height = 5,  
+       dpi = 400) 
+
+```
+
+```{r d13C gams + lms}
+
+#MAP
+d13c_MAP_lm <- lm(d13C ~ MAP, data = chimp_data)
+summary(d13c_MAP_lm)
+
+cMAP_r2 <- round(summary(d13c_MAP_lm)$adj.r.squared, 3)
+cMAP_pval <- summary(d13c_MAP_lm)$coefficients["MAP", "Pr(>|t|)"]
+cMAP_pval_label <- if (cMAP_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cMAP_pval, 3))
+}
+
+d13c_MAP <- ggplot(data = chimp_data, mapping = aes(x = MAP, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+           x = min(chimp_data$MAP, na.rm = TRUE), 
+           y = min(chimp_data$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 0, size = 4,
+           label = paste0("Adj R² = ", cMAP_r2, "\n", cMAP_pval_label)) +
+  coord_cartesian(ylim = c(min(chimp_data$d13C, na.rm = TRUE), NA)) +  
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Mean Annual Precipitation (mm)")
+d13c_MAP
+
+#MAT
+d13c_MAT_lm <- lm(d13C ~ MAT, data = chimp_data)
+summary(d13c_MAT_lm)
+
+cMAT_r2 <- round(summary(d13c_MAT_lm)$adj.r.squared, 3)
+cMAT_pval <- summary(d13c_MAT_lm)$coefficients["MAT", "Pr(>|t|)"]
+cMAT_pval_label <- if (cMAT_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cMAT_pval, 3))
+}
+
+d13c_MAT <- ggplot(data = chimp_data, mapping = aes(x = MAT, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+         x = min(chimp_data$MAT, na.rm = TRUE), 
+         y = min(chimp_data$d13C, na.rm = TRUE),
+         hjust = 0, vjust = 0, size = 4,
+         label = paste0("Adj R² = ", cMAT_r2, "\n", cMAT_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Mean Annual Temperature (°C)")
+
+d13c_MAT
+
+#elevation
+d13c_EL_lm <- lm(d13C ~ Elevation, data = chimp_data)
+summary(d13c_EL_lm)
+
+cEL_r2 <- round(summary(d13c_EL_lm)$adj.r.squared, 3)
+cEL_pval <- summary(d13c_EL_lm)$coefficients["Elevation", "Pr(>|t|)"]
+cEL_pval_label <- if (cEL_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cEL_pval, 3))
+}
+
+d13c_EL <- ggplot(data = chimp_data, mapping = aes(x = Elevation, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+         x = max(chimp_data$Elevation, na.rm = TRUE), 
+         y = min(chimp_data$d13C, na.rm = TRUE),
+         hjust = 1, vjust = 0, size = 4,
+         label = paste0("Adj R² = ", cEL_r2, "\n", cEL_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Elevation (m)")
+
+d13c_EL
+
+#max tree cover
+d13c_MTC_lm <- lm(d13C ~ treeCoverMax, data = chimp_data)
+
+cMTC_r2 <- round(summary(d13c_MTC_lm)$adj.r.squared, 3)
+cMTC_pval <- summary(d13c_MTC_lm)$coefficients["treeCoverMax", "Pr(>|t|)"]
+cMTC_pval_label <- if (cMTC_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cMTC_pval, 3))
+}
+
+d13c_MTC <- ggplot(data = chimp_data, mapping = aes(x = treeCoverMax, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8) +
+  annotate("text",
+           x = min(chimp_data$treeCoverMax, na.rm = TRUE), 
+           y = min(chimp_data$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 0, size = 4, 
+           label = paste0("Adj R² = ", cMTC_r2, "\n", cMTC_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Maximum Tree Canopy Cover (%)")
+
+d13c_MTC
+
+
+#Precip seasonality
+d13c_SPgam <- gam(d13C ~ s(Seasonality_Precipitation, k = 3), data = chimp_data)
+summary(d13c_SPgam)
+
+cSP_r2 <- round(summary(d13c_SPgam)$r.sq, 3)
+cSP_edf <- round(summary(d13c_SPgam)$s.table[1, "edf"], 2)
+cSP_pval <- summary(d13c_SPgam)$s.table[1, "p-value"]
+cSP_pval_label <- if (cSP_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cSP_pval, 3))
+}
+
+d13c_SP <- ggplot(data = chimp_data, mapping = aes(x = Seasonality_Precipitation, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 3), color = "black") +
+  annotate("text",
+         x = max(chimp_data$Seasonality_Precipitation, na.rm = TRUE), 
+         y = min(chimp_data$d13C, na.rm = TRUE),
+         hjust = 1, vjust = 0, size = 4,
+         label = paste0("Adj R² = ", cSP_r2, "\nEDF = ", cSP_edf, "\n", cSP_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Precipitation Seasonality (CV × 100)")
+
+d13c_SP
+
+#temp seasonality
+d13c_ST_lm <- lm(d13C ~ Temp_seasonality, data = chimp_data)
+summary(d13c_ST_lm)
+
+cST_r2 <- round(summary(d13c_ST_lm)$adj.r.squared, 3)
+cST_pval <- summary(d13c_ST_lm)$coefficients["Temp_seasonality", "Pr(>|t|)"]
+cST_pval_label <- if (cST_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cST_pval, 3))
+}
+
+d13c_ST <- ggplot(data = chimp_data, mapping = aes(x = Temp_seasonality, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+         x = max(chimp_data$Temp_seasonality, na.rm = TRUE), 
+         y = min(chimp_data$d13C, na.rm = TRUE),
+         hjust = 1, vjust = 0, size = 4,
+         label = paste0("Adj R² = ", cST_r2, "\n", cST_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Temperature Seasonality (SD × 100)")
+
+d13c_ST
+
+#all together
+d13c1 <- d13c_MAP + theme(legend.position = "none")
+d13c2 <- d13c_MAT + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+d13c3 <- d13c_EL  + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+d13c4 <- d13c_MTC + theme(legend.position = "none")
+d13c5 <- d13c_SP  + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+d13c6 <- d13c_ST  + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+
+d13c_final_plot <- (d13c1 + d13c2 + d13c3) /
+              (d13c4 + d13c5 + d13c6) +
+              plot_layout(guides = "collect") &
+              theme(
+  legend.position = "right",
+  legend.title = element_text(size = 16),
+  legend.text = element_text(size = 14),
+  legend.key.size = unit(1, "cm"),  
+  legend.spacing.y = unit(0.2, "cm"),         
+  legend.margin = margin(0, 5, 0, 5)           
+)
+d13c_final_plot
+
+ggsave("d13c_all_fig.png", plot = d13c_final_plot, 
+       width = 13, height = 8,  
+       dpi = 400) 
+
+
+
+```
+
+```{r d15N mmodels}
+m16 <- lmer(d15N ~ zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m17 <- lmer(d15N ~ zMAT + (1 | Group), data = chimp_data, REML = FALSE)
+m18 <- lmer(d15N ~ zEL + (1 | Group), data = chimp_data, REML = FALSE)
+m19 <- lmer(d15N ~ zPTCm  + (1 | Group), data = chimp_data, REML = FALSE)
+m20 <- lmer(d15N ~ zSP  + (1 | Group), data = chimp_data, REML = FALSE)
+m21 <- lmer(d15N ~ zSP + zMAP + I(zMAP^2) + (1 | Group), data = chimp_data, REML = FALSE)
+m22 <- lmer(d15N ~ zSP + zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m23 <- lmer(d15N ~ zSP * zMAP + (1 | Group), data = chimp_data, REML = FALSE)
+m24 <- lmer(d15N ~ zSP * zMAP + I(zMAP^2) + (1 | Group), data = chimp_data, REML = FALSE)
+
+
+aictab(cand.set = list(m16 = m16, m17 = m17, m18 = m18, m19 = m19, m20 = m20))
+
+aictab(cand.set = list(m16 = m16, m17 = m17, m18 = m18, m19 = m19, m20 = m20, m21 = m21, m22 = m22, m23 = m23, m24 = m24))
+
+plot_model(m24, type = "est")
+interact_plot(m24, pred = zSP, modx = zMAP)
+d15N_map <- ggplot(chimp_data, aes(x = zMAP, y = d15N)) +
+  geom_point() +
+  theme_bw() +
+  ggtitle("d15N vs zMAP")
+
+```
+
+```{r d15N coefplot and interaction plot}
+
+combine_CIs <- function(m, model_name) {
+  tidy(m, effects = "fixed", conf.int = TRUE, conf.level = 0.95) %>%
+    filter(term != "(Intercept)") %>%
+    rename(estimate = estimate, se = std.error, stat = statistic,
+           CI_95_low = conf.low, CI_95_high = conf.high) %>%
+    left_join(
+      tidy(m, effects = "fixed", conf.int = TRUE, conf.level = 0.50) %>%
+        filter(term != "(Intercept)") %>%
+        dplyr::select(term, CI_50_low = conf.low, CI_50_high = conf.high),
+      by = "term"
+    ) %>%
+    mutate(Model = model_name)
+}
+
+coef_df <- bind_rows(
+  combine_CIs(m24, "m24"),
+  combine_CIs(m23, "m23"),
+  combine_CIs(m20, "m20")
+)
+
+coef_df <- coef_df %>%
+  mutate(term = factor(term, levels = rev(unique(term))))
+
+term_labels <- c(
+  "zMAP" = "Precipitation",
+  "I(zMAP^2)" = expression(Precipitation^2),
+  "zSP" = "Precip. Seasonality",
+  "zSP:zMAP" = "Precip. Seasonality \n x Precipitation"
+)
+
+model_colors <- c("m24" = "#8c3f5d", "m23" = "#6e4f2f", "m20" = "#e67e22")
+
+dodge <- position_dodge(width = 0.6)
+
+d15N_models_coef <- ggplot(coef_df, aes(x = term, y = estimate, color = Model)) +
+  geom_errorbar(aes(ymin = CI_95_low, ymax = CI_95_high),
+                width = 0, size = 0.5, alpha = 0.6, position = dodge) +
+  geom_errorbar(aes(ymin = CI_50_low, ymax = CI_50_high),
+                width = 0, size = 1.5, position = dodge) +
+  geom_point(position = dodge, size = 2.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  coord_flip() +
+  scale_color_manual(values = model_colors) +
+  scale_x_discrete(labels = term_labels) +
+  scale_y_continuous(limits = c(-3, 3)) +
+  labs(x = NULL, y = "Estimate", title = expression(delta^{15}*N)) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "none",
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    plot.title = element_text(hjust = 0.05, size = 15)
+  ) +
+  annotate("point", x = 4.4, y = 0.4, color = "#8c3f5d", size = 3)+
+  annotate("text", x = 4.4, y = 0.5, label = "m24: ΔAIC = 0.00, ω = 0.90", hjust = 0, size = 4)+
+  annotate("point", x = 4.2, y = 0.4, color = "#6e4f2f", size = 3)+
+  annotate("text", x = 4.2, y = 0.5, label = "m23: ΔAIC = 1.48, ω = 0.06", hjust = 0, size = 4)+
+  annotate("point", x = 4, y = 0.4, color = "#e67e22", size = 3)+
+  annotate("text", x = 4, y = 0.5, label = "m20: ΔAIC = 3.38, ω = 0.03", hjust = 0, size = 4)
+
+d15N_models_coef
+
+ggsave("d15N_models_coef.png", plot = d15N_models_coef, 
+       width = 6.5, height = 4,  
+       dpi = 400) 
+
+chimp_data$zMAP <- scale(chimp_data$MAP)[, 1]
+chimp_data$zMAP_sq <- chimp_data$zMAP^2
+m25 <- lmer(d15N ~ zSP * zMAP + zMAP_sq + (1 | Group), data = chimp_data, REML = FALSE)
+
+d15n_int1 <- interact_plot(
+  m25, pred = zSP, modx = zMAP, 
+  legend.main = "Precipitation",
+  modx.labels = c("Low -1 SD", "Mean", "High +1 SD"),
+  interval = TRUE,
+  partial.residuals = TRUE,
+  colors = c("#c97e97", "#8c3f5d", "#5d263b")
+) +
+  labs(
+    title = "Precip. Seasonality x Precipitation",
+    x = "Precip. Seasonality (Z-score)",
+    y = expression(paste(delta^{13}, "C (\u2030)")),
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 12),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    plot.title = element_text(size = 12, hjust = 0.5)
+  )
+d15n_int1
+
+ggsave("d15n_int1.png", plot = d15n_int1, 
+       width = 6, height = 5,  
+       dpi = 400) 
+
+
+```
+
+```{r d15N gams + lms}
+
+#MAP
+d15n_MAPgam <- gam(d15N ~ s(MAP, k = 3), data = chimp_data)
+summary(d15n_MAPgam)
+nMAP_r2 <- round(summary(d15n_MAPgam)$r.sq, 3)
+nMAP_edf <- round(summary(d15n_MAPgam)$s.table[1, "edf"], 2)
+nMAP_pval <- summary(d15n_MAPgam)$s.table[1, "p-value"]
+nMAP_pval_label <- if (nMAP_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(nMAP_pval, 3))
+}
+
+d15n_MAP <- ggplot(data = chimp_data, mapping = aes(x = MAP, y = d15N)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 3), color = "black") +
+  annotate("text",
+         x = max(chimp_data$MAP, na.rm = TRUE), 
+         y = max(chimp_data$d15N, na.rm = TRUE),
+         hjust = 1, vjust = 1, size = 4,
+         label = paste0("Adj R² = ", nMAP_r2, "\nEDF = ", nMAP_edf, "\n", nMAP_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{15}, "N (\u2030)"))) +
+  xlab("Mean Annual Precipitation (mm)")
+d15n_MAP
+
+#MAT
+
+d15n_MATlm <- lm(d15N ~ MAT, data = chimp_data)
+
+nMAT_r2 <- round(summary(d15n_MATlm)$adj.r.squared, 3)
+nMAT_pval <- summary(d15n_MATlm)$coefficients["MAT", "Pr(>|t|)"]
+nMAT_pval_label <- if (nMAT_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(nMAT_pval, 3))
+}
+
+d15n_MAT <- ggplot(data = chimp_data, mapping = aes(x = MAT, y = d15N)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text",
+           x = max(chimp_data$MAT, na.rm = TRUE), 
+           y = max(chimp_data$d15N, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", nMAT_r2, "\n", nMAT_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{15}, "N (\u2030)"))) +
+  xlab("Mean Annual Temperature (°C)")
+
+d15n_MAT
+
+#Elevation
+d15n_EL_lm <- lm(d15N ~ Elevation, data = chimp_data)
+summary_d15n_EL_lm <- summary(d15n_EL_lm)
+
+nEL_r2 <- round(summary_d15n_EL_lm$adj.r.squared, 3)
+nEL_pval <- summary_d15n_EL_lm$coefficients["Elevation", "Pr(>|t|)"]
+nEL_pval_label <- if (nEL_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(nEL_pval, 3))
+}
+
+d15n_EL <- ggplot(data = chimp_data, aes(x = Elevation, y = d15N)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", color = "black") +
+  annotate("text",
+         x = max(chimp_data$Elevation, na.rm = TRUE), 
+         y = max(chimp_data$d15N, na.rm = TRUE),
+         hjust = 1, vjust = 1, size = 4,
+         label = paste0("Adj R² = ", nEL_r2, "\n", nEL_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{15}, "N (\u2030)"))) +
+  xlab("Elevation (m)")
+
+d15n_EL
+
+
+#Max tree cover
+d15n_MTC_lm <- lm(d15N ~ treeCoverMax, data = chimp_data)
+summary(d15n_MTC_lm)
+
+nMTC_r2 <- round(summary(d15n_MTC_lm)$adj.r.squared, 3)
+nMTC_pval <- summary(d15n_MTC_lm)$coefficients[2, "Pr(>|t|)"]
+nMTC_pval_label <- if (nMTC_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(nMTC_pval, 3))
+}
+
+d15n_MTC <- ggplot(data = chimp_data, mapping = aes(x = treeCoverMax, y = d15N)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text",
+           x = min(chimp_data$treeCoverMax, na.rm = TRUE), 
+           y = max(chimp_data$d15N, na.rm = TRUE),
+           hjust = 0, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", nMTC_r2, "\n", nMTC_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{15}, "N (\u2030)"))) +
+  xlab("Maximum Tree Canopy Cover (%)")
+
+d15n_MTC
+
+
+#Precipitation seasonality
+d15n_SP_lm <- lm(d15N ~ Seasonality_Precipitation, data = chimp_data)
+summary_d15n_SP_lm <- summary(d15n_SP_lm)
+
+nSP_r2 <- round(summary_d15n_SP_lm$adj.r.squared, 3)
+nSP_pval <- summary_d15n_SP_lm$coefficients["Seasonality_Precipitation", "Pr(>|t|)"]
+nSP_pval_label <- if (nSP_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(nSP_pval, 3))
+}
+
+d15n_SP <- ggplot(data = chimp_data, aes(x = Seasonality_Precipitation, y = d15N)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text",
+         x = max(chimp_data$Seasonality_Precipitation, na.rm = TRUE), 
+         y = max(chimp_data$d15N, na.rm = TRUE),
+         hjust = 1, vjust = 1, size = 4,
+         label = paste0("Adj R² = ", nSP_r2, "\n", nSP_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{15}, "N (\u2030)"))) +
+  xlab("Precipitation Seasonality (CV × 100)")
+
+d15n_SP
+
+#temp seasonality
+d15n_ST_lm <- lm(d15N ~ Temp_seasonality, data = chimp_data)
+
+nST_r2 <- round(summary(d15n_ST_lm)$adj.r.squared, 3)
+nST_pval <- summary(d15n_ST_lm)$coefficients[2, "Pr(>|t|)"]
+nST_pval_label <- if (nST_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(nST_pval, 3))
+}
+
+d15n_ST <- ggplot(data = chimp_data, mapping = aes(x = Temp_seasonality, y = d15N)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  annotate("text",
+           x = max(chimp_data$Temp_seasonality, na.rm = TRUE), 
+           y = max(chimp_data$d15N, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", nST_r2, "\n", nST_pval_label)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{15}, "N (\u2030)"))) +
+  xlab("Temperature Seasonality (SD × 100)")
+
+d15n_ST
+
+#all together
+d15n1 <- d15n_MAP + theme(legend.position = "none")
+d15n2 <- d15n_MAT + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+d15n3 <- d15n_EL  + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+d15n4 <- d15n_MTC + theme(legend.position = "none")
+d15n5 <- d15n_SP  + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+d15n6 <- d15n_ST  + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+
+d15n_final_plot <- (d15n1 + d15n2 + d15n3) /
+                   (d15n4 + d15n5 + d15n6) +
+  plot_layout(guides = "collect") &
+  theme(
+  legend.position = "right",
+  legend.title = element_text(size = 16),
+  legend.text = element_text(size = 14),
+  legend.key.size = unit(1, "cm"),  
+  legend.spacing.y = unit(0.2, "cm"),         
+  legend.margin = margin(0, 5, 0, 5)           
+)
+d15n_final_plot
+
+ggsave("d15n_all_fig.png", plot = d15n_final_plot, 
+       width = 13, height = 8,  
+       dpi = 400) 
+
+
+```
+
+```{r Niche space gams + lms}
+plot(Niche_space ~ zMAP, data = chimp_data)
+plot(Niche_space ~ zMAT, data = chimp_data)
+plot(Niche_space ~ zEL, data = chimp_data)
+plot(Niche_space ~ zPTCm, data = chimp_data)
+plot(Niche_space ~ zSP, data = chimp_data)
+
+#MAP
+
+MAP_model_gam <- gam(Niche_space ~ s(MAP, bs = "cs", k = 3), data = chimp_data)
+
+map_summary <- summary(MAP_model_gam)
+map_r2 <- round(map_summary$r.sq, 3)
+map_edf <- round(map_summary$s.table[1, "edf"], 2)
+map_pval <- map_summary$s.table[1, "p-value"]
+map_pval_label <- if (map_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(map_pval, 3))
+}
+
+map_seq <- seq(min(chimp_data$MAP, na.rm = TRUE),
+               max(chimp_data$MAP, na.rm = TRUE),
+               length.out = 100)
+
+pred_map <- predict(MAP_model_gam,
+                    newdata = data.frame(MAP = map_seq),
+                    se.fit = TRUE)
+
+gg_NS_MAP <- ggplot(chimp_data, aes(x = MAP, y = Niche_space, color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(MAP = map_seq, Niche_space = pred_map$fit),
+            aes(x = MAP, y = Niche_space), inherit.aes = FALSE,
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(MAP = map_seq,
+                                ymin = pred_map$fit - 2 * pred_map$se.fit,
+                                ymax = pred_map$fit + 2 * pred_map$se.fit),
+              aes(x = MAP, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+         x = max(map_seq), 
+         y = max(chimp_data$Niche_space, na.rm = TRUE),
+         hjust = 1, vjust = 1, size = 3,
+         label = paste0("Adj R² = ", map_r2,
+                        "\nEDF = ", map_edf,
+                        "\n", map_pval_label))+
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Mean Annual Precipitation (mm)", y = "Isotopic Niche Space") +
+  theme_bw()+
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 9))
+
+gg_NS_MAP
+
+
+
+#MAT
+MAT_model_gam <- gam(Niche_space ~ s(MAT, bs = "cs", k = 3), data = chimp_data)
+
+mat_summary <- summary(MAT_model_gam)
+mat_r2 <- round(mat_summary$r.sq, 3)
+mat_edf <- round(mat_summary$s.table[1, "edf"], 2)
+mat_pval <- mat_summary$s.table[1, "p-value"]
+mat_pval_label <- if (mat_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(mat_pval, 3))
+}
+
+mat_seq <- seq(min(chimp_data$MAT, na.rm = TRUE),
+               max(chimp_data$MAT, na.rm = TRUE),
+               length.out = 100)
+
+pred_mat <- predict(MAT_model_gam,
+                    newdata = data.frame(MAT = mat_seq),
+                    se.fit = TRUE)
+
+gg_NS_MAT <- ggplot(chimp_data, aes(x = MAT, y = Niche_space, color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(MAT = mat_seq, Niche_space = pred_mat$fit),
+            aes(x = MAT, y = Niche_space), inherit.aes = FALSE, color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(MAT = mat_seq,
+                                ymin = pred_mat$fit - 2 * pred_mat$se.fit,
+                                ymax = pred_mat$fit + 2 * pred_mat$se.fit),
+              aes(x = MAT, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = max(mat_seq),
+           y = max(chimp_data$Niche_space, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 3,
+           label = paste0("Adj R² = ", mat_r2,
+                          "\nEDF = ", mat_edf,
+                          "\n", mat_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Mean Annual Temperature (C)", y = "Isotopic Niche Space") +
+  theme_bw()+
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 9))
+
+gg_NS_MAT
+
+#Elevation
+EL_model_lm <- lm(Niche_space ~ Elevation, data = chimp_data)
+
+el_summary <- summary(EL_model_lm)
+el_r2 <- round(el_summary$adj.r.squared, 3)
+el_pval <- el_summary$coefficients["Elevation", "Pr(>|t|)"]
+el_pval_label <- if (el_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(el_pval, 3))
+}
+
+el_seq <- seq(min(chimp_data$Elevation, na.rm = TRUE),
+              max(chimp_data$Elevation, na.rm = TRUE),
+              length.out = 100)
+
+pred_el <- predict(EL_model_lm,
+                   newdata = data.frame(Elevation = el_seq),
+                   se.fit = TRUE)
+
+gg_NS_EL <- ggplot(chimp_data, aes(x = Elevation, y = Niche_space, 
+                                   color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(Elevation = el_seq, Niche_space = pred_el$fit),
+            aes(x = Elevation, y = Niche_space), inherit.aes = FALSE, 
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(Elevation = el_seq,
+                                ymin = pred_el$fit - 2 * pred_el$se.fit,
+                                ymax = pred_el$fit + 2 * pred_el$se.fit),
+              aes(x = Elevation, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = max(el_seq),
+           y = max(chimp_data$Niche_space, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 3,
+           label = paste0("Adj R² = ", el_r2,
+                          "\n", el_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Elevation (m)", y = "Isotopic Niche Space") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 9))
+
+gg_NS_EL
+
+#Max canopy
+PTCm_model_lm <- lm(Niche_space ~ treeCoverMax, data = chimp_data)
+
+ptcm_summary <- summary(PTCm_model_lm)
+ptcm_r2 <- round(ptcm_summary$adj.r.squared, 3)
+ptcm_pval <- ptcm_summary$coefficients["treeCoverMax", "Pr(>|t|)"]
+ptcm_pval_label <- if (ptcm_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(ptcm_pval, 3))
+}
+
+ptcm_seq <- seq(min(chimp_data$treeCoverMax, na.rm = TRUE),
+                max(chimp_data$treeCoverMax, na.rm = TRUE),
+                length.out = 100)
+
+pred_ptcm <- predict(PTCm_model_lm,
+                     newdata = data.frame(treeCoverMax = ptcm_seq),
+                     se.fit = TRUE)
+
+gg_NS_PTCm <- ggplot(chimp_data, aes(x = treeCoverMax, y = Niche_space,
+                                     color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(treeCoverMax = ptcm_seq, Niche_space = pred_ptcm$fit),
+            aes(x = treeCoverMax, y = Niche_space), inherit.aes = FALSE,
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(treeCoverMax = ptcm_seq,
+                                ymin = pred_ptcm$fit - 2 * pred_ptcm$se.fit,
+                                ymax = pred_ptcm$fit + 2 * pred_ptcm$se.fit),
+              aes(x = treeCoverMax, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = min(ptcm_seq),
+           y = max(chimp_data$Niche_space, na.rm = TRUE),
+           hjust = 0, vjust = 1, size = 3,
+           label = paste0("Adj R² = ", ptcm_r2,
+                          "\n", ptcm_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Maximum Tree Canopy Cover (%)", y = "Isotopic Niche Space") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 9))
+
+gg_NS_PTCm
+
+
+#Precip Seasonality
+SP_model_gam <- gam(Niche_space ~ s(Seasonality_Precipitation, k = 3), data = chimp_data)
+
+sp_summary <- summary(SP_model_gam)
+sp_r2 <- round(sp_summary$r.sq, 3)
+sp_edf <- round(sp_summary$s.table[1, "edf"], 2)
+sp_pval <- sp_summary$s.table[1, "p-value"]
+sp_pval_label <- if (sp_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(sp_pval, 3))
+}
+
+sp_seq <- seq(min(chimp_data$Seasonality_Precipitation, na.rm = TRUE),
+              max(chimp_data$Seasonality_Precipitation, na.rm = TRUE),
+              length.out = 100)
+
+pred_sp <- predict(SP_model_gam,
+                   newdata = data.frame(Seasonality_Precipitation = sp_seq),
+                   se.fit = TRUE)
+
+gg_NS_SP <- ggplot(chimp_data, aes(x = Seasonality_Precipitation, y = Niche_space,
+                                   color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(Seasonality_Precipitation = sp_seq,
+                              Niche_space = pred_sp$fit),
+            aes(x = Seasonality_Precipitation, y = Niche_space),
+            inherit.aes = FALSE, color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(Seasonality_Precipitation = sp_seq,
+                                ymin = pred_sp$fit - 2 * pred_sp$se.fit,
+                                ymax = pred_sp$fit + 2 * pred_sp$se.fit),
+              aes(x = Seasonality_Precipitation, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = max(sp_seq),
+           y = max(chimp_data$Niche_space, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 3,
+           label = paste0("Adj R² = ", sp_r2,
+                          "\nEDF = ", sp_edf,
+                          "\n", sp_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Precipitation Seasonality (CV x 100)", y = "Isotopic Niche Space") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 9))
+
+gg_NS_SP
+
+#Temp Seasonality
+ST_model_gam <- gam(Niche_space ~ s(Temp_seasonality, k = 3), data = chimp_data)
+
+st_summary <- summary(ST_model_gam)
+st_r2 <- round(st_summary$r.sq, 3)
+st_edf <- round(st_summary$s.table[1, "edf"], 2)
+st_pval <- st_summary$s.table[1, "p-value"]
+st_pval_label <- if (st_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(st_pval, 3))
+}
+
+st_seq <- seq(min(chimp_data$Temp_seasonality, na.rm = TRUE),
+              max(chimp_data$Temp_seasonality, na.rm = TRUE),
+              length.out = 100)
+
+pred_st <- predict(ST_model_gam,
+                   newdata = data.frame(Temp_seasonality = st_seq),
+                   se.fit = TRUE)
+
+gg_NS_ST <- ggplot(chimp_data, aes(x = Temp_seasonality, y = Niche_space, 
+                                   color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(Temp_seasonality = st_seq, 
+                              Niche_space = pred_st$fit),
+            aes(x = Temp_seasonality, y = Niche_space), inherit.aes = FALSE, 
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(Temp_seasonality = st_seq,
+                                ymin = pred_st$fit - 2 * pred_st$se.fit,
+                                ymax = pred_st$fit + 2 * pred_st$se.fit),
+              aes(x = Temp_seasonality, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = max(st_seq),
+           y = max(chimp_data$Niche_space, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 3,
+           label = paste0("Adj R² = ", st_r2,
+                          "\nEDF = ", st_edf,
+                          "\n", st_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Temperature Seasonality (SD x 100)", y = "Isotopic Niche Space") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 9))
+
+gg_NS_ST
+
+
+#all together
+gg1 <- gg_NS_MAP   + theme(legend.position = "none")
+gg2 <- gg_NS_MAT   + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+gg3 <- gg_NS_EL    + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+gg4 <- gg_NS_PTCm  + theme(legend.position = "none")
+gg5 <- gg_NS_SP    + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+gg6 <- gg_NS_ST    + theme(legend.position = "none", axis.title.y = element_blank(), axis.ticks.y = element_blank(), axis.text.y = element_blank())
+
+NS_final_plot <- (gg1 + gg2 + gg3) /
+              (gg4 + gg5 + gg6) +
+              plot_layout(guides = "collect") &
+              theme(legend.position = "right")  
+NS_final_plot
+
+
+ggsave("NS_all_fig.png", plot = NS_final_plot, 
+       width = 9, height = 6,  
+       dpi = 400) 
+
+```
+
+```{r future seasonality figs}
+library(dplyr)
+library(mgcv)
+library(tidyr)
+library(dplyr)
+library(tidyr)
+
+#seasonality change
+seasonality_plot_data <- chimp_data %>%
+  select(Group, `2000` = Seasonality_Precipitation, `2041` = SSP245AVG_2041_precip) %>%
+  pivot_longer(cols = c(`2000`, `2041`), names_to = "Timepoint", values_to = "Seasonality")
+
+# Ensure factor order for timepoints
+seasonality_plot_data$Timepoint <- factor(seasonality_plot_data$Timepoint, levels = c("2000", "2041"))
+
+# Plot
+precip_seasonality_future <- ggplot(seasonality_plot_data, aes(x = Timepoint, y = Seasonality, group = Group)) +
+  geom_line(aes(color = Group), linewidth = 0.6, alpha = 0.3) +
+  geom_point(aes(color = Group, shape = Group), size = 3, stroke = 1.2) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  stat_compare_means(
+    paired = TRUE,
+    method = "t.test",
+    label.y = 145,
+    size = 5
+  ) +
+  scale_y_continuous(limits = c(0, 150)) +
+  labs(
+    x = NULL,
+    y = "Precipitation Seasonality",
+    title = ""
+  ) +
+  theme_bw(base_size = 15) +
+  theme(
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 13),
+    legend.position = "right"
+  )
+
+precip_seasonality_future
+
+ggsave("precip_seasonality_future.png", plot = precip_seasonality_future, 
+       width = 5, height = 6,  
+       dpi = 400) 
+```
+
+```{r Future niche fig}
+
+niche_plot_data <- chimp_data %>%
+  select(Group, Niche_space, Niche_space_245_2041) %>%
+  pivot_longer(cols = c(Niche_space, Niche_space_245_2041),
+               names_to = "Timepoint",
+               values_to = "Niche_size") %>%
+  mutate(Timepoint = recode(Timepoint,
+                            "Niche_space" = "2000",
+                            "Niche_space_245_2041" = "2041"))
+
+niche_plot_data$Group <- factor(niche_plot_data$Group, levels = unique(chimp_data$Group))
+
+niche_plot_data_filtered <- niche_plot_data %>%
+  filter(Group != "Kalinzu")
+
+group_order <- niche_plot_data_filtered %>%
+  filter(Timepoint == "2000") %>%
+  arrange(Niche_size) %>%
+  pull(Group) %>%
+  unique()
+
+niche_plot_data_filtered$Group <- factor(niche_plot_data_filtered$Group, levels = group_order)
+
+niche_plot_data_filtered$Group_color <- group_colors[as.character(niche_plot_data_filtered$Group)]
+
+Niche_space_future <- ggplot(niche_plot_data_filtered, aes(x = Group, y = Niche_size)) +
+  geom_line(aes(group = Timepoint, linetype = Timepoint, color = Timepoint), linewidth = 1.2) +
+
+  geom_point(aes(shape = Group), 
+             color = niche_plot_data_filtered$Group_color, 
+             size = 3, stroke = 1, alpha = 0.5, show.legend = FALSE) +
+  scale_color_manual(values = c("2000" = "gray30", "2041" = "maroon")) +
+  scale_shape_manual(values = group_shapes) +
+  scale_linetype_manual(values = c("2000" = "solid", "2041" = "dotdash")) +
+  labs(
+    x = NULL,
+    y = "Isotopic Niche Space",
+    title = "",
+    linetype = "Timepoint",
+    color = "Timepoint"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),
+    axis.text.y = element_text(size = 14),
+    axis.title.y = element_text(size = 16),
+    legend.title = element_text(size = 15),
+    legend.text = element_text(size = 14)
+  )
+
+Niche_space_future
+
+ggsave("Niche_space_future_sim.png", plot = Niche_space_future, 
+       width = 10, height = 6,  
+       dpi = 400) 
+
+
+```
+
+```{r fossil comp}
+fossil_data <- read.csv("chimp_fossil_comp.csv")
+
+library(ggtext)
+
+fossil_data$d13C <- as.numeric(fossil_data$d13C)
+
+fossil_data$Genus <- factor(fossil_data$Genus, levels = c(
+  "Pan",
+  "Morotopithecus",
+  "Rangwapithecus",
+  "Sivapithecus",
+  "Khoratpithecus",
+  "Indopithecus"
+))
+
+fossil_data$Genus <- factor(fossil_data$Genus,
+  levels = c("Pan", "Morotopithecus", "Rangwapithecus", 
+             "Sivapithecus", "Khoratpithecus", "Indopithecus"),
+  labels = c("*Pan*", "*Morotopithecus*", "*Rangwapithecus*", 
+             "*Sivapithecus*", "*Khoratpithecus*", "*Indopithecus*")
+)
+
+fossil_colors <- c(
+  "*Pan*" = "#2E8B57",
+  "*Sivapithecus*" = "#556B2F",
+  "*Rangwapithecus*" = "#8A9A5B",
+  "*Morotopithecus*" = "#4F7942",
+  "*Khoratpithecus*" = "#7B9F35",
+  "*Indopithecus*" = "#A9BA9D"
+)
+
+chimp_fossil_comp <- ggplot(fossil_data, aes(x = d13C, y = Genus, fill = Genus)) +
+  geom_boxplot(color = "black", alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(aes(color = Genus), width = 0, height = 0.1, size = 1.5, alpha = 0.9) +
+  scale_fill_manual(values = fossil_colors) +
+  scale_color_manual(values = fossil_colors) +
+  labs(
+    x = expression(delta^13*C[enamel]~("\u2030")),
+    y = "Genus",
+    title = "") +
+  theme_bw(base_size = 14) +
+  theme(
+    legend.position = "none",
+    axis.text.y = ggtext::element_markdown()
+  )
+chimp_fossil_comp
+
+ggsave("chimp_fossil_comp.png", plot = chimp_fossil_comp, 
+       width = 10, height = 4,  
+       dpi = 400) 
+
+```
+
+```{r chimp behavior}
+behavioral_data <- read.csv("behavioral_diversity.csv")
+
+# Linear model: Niche_space ~ behavioral_diversity
+lm1 <- lm(Niche_space ~ behavioral_diversity, data = behavioral_data)
+r2_1 <- round(summary(lm1)$adj.r.squared, 3)
+pval_1 <- summary(lm1)$coefficients["behavioral_diversity", "Pr(>|t|)"]
+pval_label_1 <- if (pval_1 < 0.001) "p < 0.001" else paste0("p = ", signif(pval_1, 3))
+
+# Linear model: Niche_space ~ foraging_behavioral_diversity
+lm2 <- lm(Niche_space ~ foraging_behavioral_diversity, data = behavioral_data)
+r2_2 <- round(summary(lm2)$adj.r.squared, 3)
+pval_2 <- summary(lm2)$coefficients["foraging_behavioral_diversity", "Pr(>|t|)"]
+pval_label_2 <- if (pval_2 < 0.001) "p < 0.001" else paste0("p = ", signif(pval_2, 3))
+
+plot1 <- ggplot(behavioral_data, aes(x = behavioral_diversity, y = Niche_space,
+                                     color = Group, shape = Group)) +
+  geom_point(size = 3, stroke = 1.1, alpha = 0.7) +
+  geom_smooth(aes(group = 1), method = "lm", color = "black", size = 0.25) +
+  annotate("text",
+           x = min(behavioral_data$behavioral_diversity, na.rm = TRUE),
+           y = max(behavioral_data$Niche_space, na.rm = TRUE) + 0.2,
+           hjust = 0, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", r2_1, "\n", pval_label_1)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(x = "Behavioral Diversity",
+       y = "Isotopic Niche Space") +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    axis.text = element_text(color = "black")
+  )
+
+plot1
+
+ggsave("NicheSpace_vs_BehavioralDiversity.png",
+       plot = plot1,
+       width = 5, height = 4, dpi = 300, units = "in", bg = "white")
+
+plot2 <- ggplot(behavioral_data, aes(x = foraging_behavioral_diversity, y = Niche_space,
+                                     color = Group, shape = Group)) +
+  geom_point(size = 3, stroke = 1.1, alpha = 0.7) +
+  geom_smooth(aes(group = 1), method = "lm", color = "black", size = 0.25) +
+  annotate("text",
+           x = min(behavioral_data$foraging_behavioral_diversity, na.rm = TRUE),
+           y = max(behavioral_data$Niche_space, na.rm = TRUE) + 0.3,
+           hjust = 0, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", r2_2, "\n", pval_label_2)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(x = "Foraging Behavioral Diversity",
+       y = "Isotopic Niche Space") +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    axis.text = element_text(color = "black")
+  )
+
+plot2
+
+ggsave("NicheSpace_vs_foragingDiversity.png",
+       plot = plot2,
+       width = 5, height = 4, dpi = 300, units = "in", bg = "white")
+
+```
+
+```{r tree cover}
+chimp_data_noTai <- chimp_data %>%
+  filter(Group != "Tai")
+
+d13c_lm <- lm(d13C ~ treeCoverMax, data = chimp_data_noTai)
+
+d13c_lm_summary <- summary(d13c_lm)
+d13c_r2 <- round(d13c_lm_summary$adj.r.squared, 3)
+d13c_pval <- d13c_lm_summary$coefficients["treeCoverMax", "Pr(>|t|)"]
+d13c_pval_label <- if (d13c_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(d13c_pval, 3))
+}
+
+d13c_seq <- seq(min(chimp_data_noTai$treeCoverMax, na.rm = TRUE),
+                max(chimp_data_noTai$treeCoverMax, na.rm = TRUE),
+                length.out = 100)
+
+d13c_pred_lm <- predict(d13c_lm,
+                        newdata = data.frame(treeCoverMax = d13c_seq),
+                        se.fit = TRUE)
+
+d13c_PTCm_lm <- ggplot(chimp_data_noTai, aes(x = treeCoverMax, y = d13C,
+                                             color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(treeCoverMax = d13c_seq, d13C = d13c_pred_lm$fit),
+            aes(x = treeCoverMax, y = d13C), inherit.aes = FALSE,
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(treeCoverMax = d13c_seq,
+                                ymin = d13c_pred_lm$fit - 2 * d13c_pred_lm$se.fit,
+                                ymax = d13c_pred_lm$fit + 2 * d13c_pred_lm$se.fit),
+              aes(x = treeCoverMax, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = min(d13c_seq),
+           y = max(chimp_data_noTai$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 1, size = 3.5,
+           label = paste0("Adj R² = ", d13c_r2,
+                          "\n", d13c_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Maximum Tree Canopy Cover (%)",
+       y = expression(paste(delta^{13}, "C (\u2030)"))) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 11),
+        axis.text = element_text(size = 10))
+
+d13c_PTCm_lm
+
+library(mgcv)
+
+d13c_gam <- gam(d13C ~ s(treeCoverMax, k = 3), data = chimp_data_noTai)
+
+d13c_gam_summary <- summary(d13c_gam)
+d13c_gam_r2 <- round(d13c_gam_summary$r.sq, 3)
+d13c_edf <- round(d13c_gam_summary$s.table[1, "edf"], 2)
+d13c_gam_pval <- d13c_gam_summary$s.table[1, "p-value"]
+d13c_gam_pval_label <- if (d13c_gam_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(d13c_gam_pval, 3))
+}
+
+d13c_pred_gam <- predict(d13c_gam,
+                         newdata = data.frame(treeCoverMax = d13c_seq),
+                         se.fit = TRUE)
+
+d13c_PTCm_gam <- ggplot(chimp_data_noTai, aes(x = treeCoverMax, y = d13C,
+                                              color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(treeCoverMax = d13c_seq, d13C = d13c_pred_gam$fit),
+            aes(x = treeCoverMax, y = d13C), inherit.aes = FALSE,
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(treeCoverMax = d13c_seq,
+                                ymin = d13c_pred_gam$fit - 2 * d13c_pred_gam$se.fit,
+                                ymax = d13c_pred_gam$fit + 2 * d13c_pred_gam$se.fit),
+              aes(x = treeCoverMax, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = min(d13c_seq),
+           y = max(chimp_data_noTai$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 1, size = 3.5,
+           label = paste0("Adj R² = ", d13c_gam_r2,
+                          "\nEDF = ", d13c_edf,
+                          "\n", d13c_gam_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Maximum Tree Canopy Cover (%)",
+       y = expression(paste(delta^{13}, "C (\u2030)"))) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 11),
+        axis.text = element_text(size = 10))
+
+d13c_PTCm_gam
+
+
+d13c_PE_lm <- lm(d13C ~ percEvergreen, data = chimp_data)
+summary(d13c_PE_lm)
+
+cPE_r2 <- round(summary(d13c_PE_lm)$adj.r.squared, 3)
+cPE_pval <- summary(d13c_PE_lm)$coefficients["percEvergreen", "Pr(>|t|)"]
+cPE_pval_label <- if (cPE_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cPE_pval, 3))
+}
+
+
+d13c_PE <- ggplot(data = chimp_data, mapping = aes(x = percEvergreen, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+           x = min(chimp_data$percEvergreen, na.rm = TRUE), 
+           y = min(chimp_data$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 0, size = 4,
+           label = paste0("Adj R² = ", cPE_r2, "\n", cPE_pval_label)) +
+  coord_cartesian(ylim = c(min(chimp_data$d13C, na.rm = TRUE), NA)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Percent Evergreen Forest")
+
+d13c_PE
+
+
+
+m1 <- lmer(d13C ~ zPTCmax + (1 | Group), data = chimp_data, REML = FALSE)
+m2 <- lmer(d13C ~ zPTCmean + (1 | Group), data = chimp_data, REML = FALSE)
+m3 <- lmer(d13C ~ zPTCmode + (1 | Group), data = chimp_data, REML = FALSE)
+m4 <- lmer(d13C ~ zPTCmin  + (1 | Group), data = chimp_data, REML = FALSE)
+m5 <- lmer(d13C ~ zPTCmedian + (1 | Group), data = chimp_data, REML = FALSE)
+m6 <- lmer(d13C ~ zpEG + (1 | Group), data = chimp_data, REML = FALSE)
+
+aictab(cand.set = list(max = m1, mean = m2, mode = m3, min = m4, median = m5, pEvergreen = m6))
+
+pEG <- ggplot(chimp_data, aes(x = percEvergreen, y = d13C, color = Group, shape = Group)) +
+  geom_point(alpha = 0.7, size = 3, stroke = 1.1) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "black") +
+  stat_poly_eq(
+    aes(group = 1, label = paste(..adj.rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    label.x = "right",
+    label.y = "top"
+  ) +
+  theme_classic() +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) + 
+  labs(x = "Percent Evergreen", y = expression(delta^13*C))
+pEG
+
+TCmax <- ggplot(chimp_data, aes(x = treeCoverMax, y = d13C, color = Group, shape = Group)) +
+  geom_point(alpha = 0.7, size = 3, stroke = 1.1) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "black") +
+  stat_poly_eq(
+    aes(group = 1, label = paste(..adj.rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    label.x = "right",
+    label.y = "top"
+  ) +
+  theme_classic() +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) + 
+  labs(x = "Tree Cover Max", y = expression(delta^13*C))
+TCmax
+
+TCmean <- ggplot(chimp_data, aes(x = treeCoverMean, y = d13C, color = Group, shape = Group)) +
+  geom_point(alpha = 0.7, size = 3, stroke = 1.1) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "black") +
+  stat_poly_eq(
+    aes(group = 1, label = paste(..adj.rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    label.x = "right",
+    label.y = "top"
+  ) +
+  theme_classic() +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) + 
+  labs(x = "Tree Cover Mean", y = expression(delta^13*C))
+TCmean
+
+TCmode <- ggplot(chimp_data, aes(x = treeCoverMode, y = d13C, color = Group, shape = Group)) +
+  geom_point(alpha = 0.7, size = 3, stroke = 1.1) +
+  geom_smooth(method = "lm", se = TRUE, color = "black") +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "black") +
+  stat_poly_eq(
+    aes(group = 1, label = paste(..adj.rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    label.x = "right",
+    label.y = "top"
+  ) +
+  theme_classic() +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) + 
+  labs(x = "Tree Cover Mode", y = expression(delta^13*C))
+TCmode
+
+TCmin <- ggplot(chimp_data, aes(x = treeCoverMin, y = d13C, color = Group, shape = Group)) +
+  geom_point(alpha = 0.7, size = 3, stroke = 1.1) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "black") +
+  stat_poly_eq(
+    aes(group = 1, label = paste(..adj.rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    label.x = "right",
+    label.y = "top"
+  ) +
+  theme_classic() +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) + 
+  labs(x = "Tree Cover Min", y = expression(delta^13*C))
+TCmin
+
+TCmedian <- ggplot(chimp_data, aes(x = treeCoverMedian, y = d13C, color = Group, shape = Group)) +
+  geom_point(alpha = 0.7, size = 3, stroke = 1.1) +
+  geom_smooth(aes(group = 1), method = "lm", se = TRUE, color = "black") +
+  stat_poly_eq(
+    aes(group = 1, label = paste(..adj.rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    label.x = "right",
+    label.y = "top"
+  ) +
+  theme_classic() +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) + 
+  labs(x = "Tree Cover Median", y = expression(delta^13*C))
+TCmedian
+
+TCmax1    <- TCmax + theme(legend.position = "none")
+TCmean1   <- TCmean + theme(legend.position = "none", axis.title.y = element_blank())
+TCmode1   <- TCmode + theme(legend.position = "none", axis.title.y = element_blank())
+TCmin1    <- TCmin + theme(legend.position = "none")
+TCmedian1 <- TCmedian + theme(legend.position = "none", axis.title.y = element_blank())
+pEG1 <- pEG + theme(legend.position = "none", axis.title.y = element_blank())
+
+# Final plot
+TC_final_plot <- (pEG + TCmax1 + TCmean1) /
+                 (TCmode1 + TCmin1 + TCmedian1) +
+                 plot_layout(guides = "collect") &
+                 theme(
+                   legend.position = "right",
+                   legend.title = element_text(size = 16),
+                   legend.text = element_text(size = 14),
+                   legend.key.size = unit(1, "cm"),
+                   legend.spacing.y = unit(0.2, "cm"),
+                   legend.margin = margin(0, 5, 0, 5)
+                 )
+
+TC_final_plot
+
+ggsave("TCd13c_all_fig.png", plot = TC_final_plot, 
+       width = 14, height = 8,  
+       dpi = 400)
+
+```
+
+```{r tree cover fig}
+# Linear model: Mean
+mean_model <- lm(d13C ~ treeCoverMean, data = chimp_data)
+mean_r2 <- round(summary(mean_model)$adj.r.squared, 3)
+mean_p <- summary(mean_model)$coefficients["treeCoverMean", "Pr(>|t|)"]
+mean_p_label <- if (mean_p < 0.001) "p < 0.001" else paste0("p = ", signif(mean_p, 3))
+
+d13C_TCMean <- ggplot(chimp_data, aes(x = treeCoverMean, y = d13C)) +
+  geom_point(aes(color = Group, shape = Group), 
+             size = 3, alpha = 0.7, stroke = 1, position = position_jitter(width = 0.2)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8) +
+  annotate("text",
+           x = max(chimp_data$treeCoverMean, na.rm = TRUE),
+           y = max(chimp_data$d13C, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", mean_r2, "\n", mean_p_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(x = "Mean Tree Canopy Cover (%)", y = expression(delta^13*C~("\u2030"))) +
+  theme_bw() +
+  theme(text = element_text(size = 13), axis.text = element_text(size = 12))
+d13C_TCMean
+
+# Linear model: Mode
+mode_model <- lm(d13C ~ treeCoverMode, data = chimp_data)
+mode_r2 <- round(summary(mode_model)$adj.r.squared, 3)
+mode_p <- summary(mode_model)$coefficients["treeCoverMode", "Pr(>|t|)"]
+mode_p_label <- if (mode_p < 0.001) "p < 0.001" else paste0("p = ", signif(mode_p, 3))
+
+d13C_TCMode <- ggplot(chimp_data, aes(x = treeCoverMode, y = d13C)) +
+  geom_point(aes(color = Group, shape = Group),
+             size = 3, alpha = 0.7, stroke = 1, position = position_jitter(width = 0.2)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8) +
+  annotate("text",
+           x = min(chimp_data$treeCoverMode, na.rm = TRUE),
+           y = min(chimp_data$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 0, size = 4,
+           label = paste0("Adj R² = ", mode_r2, "\n", mode_p_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(x = "Modal Tree Canopy Cover (%)", y = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 13), axis.text = element_text(size = 12),
+        axis.text.y = element_blank(), axis.ticks.y = element_blank())
+d13C_TCMode
+
+# Linear model: Max
+max_model <- lm(d13C ~ treeCoverMax, data = chimp_data)
+max_r2 <- round(summary(max_model)$adj.r.squared, 3)
+max_p <- summary(max_model)$coefficients["treeCoverMax", "Pr(>|t|)"]
+max_p_label <- if (max_p < 0.001) "p < 0.001" else paste0("p = ", signif(max_p, 3))
+
+d13C_TCMax <- ggplot(chimp_data, aes(x = treeCoverMax, y = d13C)) +
+  geom_point(aes(color = Group, shape = Group),
+             size = 3, alpha = 0.7, stroke = 1, position = position_jitter(width = 0.2)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8) +
+  annotate("text",
+           x = min(chimp_data$treeCoverMax, na.rm = TRUE),
+           y = min(chimp_data$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 0, size = 4,
+           label = paste0("Adj R² = ", max_r2, "\n", max_p_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(x = "Maximum Tree Canopy Cover (%)", y = expression(delta^13*C~("\u2030"))) +
+  theme_bw() +
+  theme(text = element_text(size = 13), axis.text = element_text(size = 12))
+
+# Linear model: Min
+min_model <- lm(d13C ~ treeCoverMin, data = chimp_data)
+min_r2 <- round(summary(min_model)$adj.r.squared, 3)
+min_p <- summary(min_model)$coefficients["treeCoverMin", "Pr(>|t|)"]
+min_p_label <- if (min_p < 0.001) "p < 0.001" else paste0("p = ", signif(min_p, 3))
+
+d13C_TCMin <- ggplot(chimp_data, aes(x = treeCoverMin, y = d13C)) +
+  geom_point(aes(color = Group, shape = Group),
+             size = 3, alpha = 0.7, stroke = 1, position = position_jitter(width = 0.2)) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", linewidth = 0.8) +
+  annotate("text",
+           x = max(chimp_data$treeCoverMin, na.rm = TRUE),
+           y = max(chimp_data$d13C, na.rm = TRUE),
+           hjust = 1, vjust = 1, size = 4,
+           label = paste0("Adj R² = ", min_r2, "\n", min_p_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(x = "Minimum Tree Canopy Cover (%)", y = NULL) +
+  theme_bw() +
+  theme(text = element_text(size = 13), axis.text = element_text(size = 12),
+        axis.text.y = element_blank(), axis.ticks.y = element_blank())
+
+# Combine plots (2x2)
+combined_TC_d13C <- (d13C_TCMean + theme(legend.position = "none")) +
+                    (d13C_TCMode + theme(legend.position = "none")) +
+                    (d13C_TCMax + theme(legend.position = "none")) +
+                    (d13C_TCMin + theme(legend.position = "none")) +
+                    plot_layout(ncol = 2, guides = "collect") &
+                    theme(legend.position = "right")
+
+combined_TC_d13C
+
+ggsave("Figure1_TreeCanopy_d13C_fixed.png", combined_TC_d13C,
+       width = 10, height = 8, dpi = 300)
+
+
+#percent evergreen 
+
+d13c_PE_lm <- lm(d13C ~ percEvergreen, data = chimp_data)
+summary(d13c_PE_lm)
+cPE_r2 <- round(summary(d13c_PE_lm)$adj.r.squared, 3)
+cPE_pval <- summary(d13c_PE_lm)$coefficients["percEvergreen", "Pr(>|t|)"]
+cPE_pval_label <- if (cPE_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(cPE_pval, 3))
+}
+
+# Plot δ13C vs Percent Evergreen
+d13c_PE <- ggplot(data = chimp_data, mapping = aes(x = percEvergreen, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+           x = min(chimp_data$percEvergreen, na.rm = TRUE), 
+           y = min(chimp_data$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 0, size = 4,
+           label = paste0("Adj R² = ", cPE_r2, "\n", cPE_pval_label)) +
+  coord_cartesian(ylim = c(min(chimp_data$d13C, na.rm = TRUE), NA)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Percent Evergreen Forest")
+
+d13c_PE
+
+
+sw_chimp_data <- chimp_data %>%
+  filter(Ecoregion == "SW", !Group %in% c("Mitumba", "Kasekela"))
+
+d13c_SW_PE <- ggplot(data = sw_chimp_data, mapping = aes(x = percEvergreen, y = d13C)) +
+  geom_point(
+    aes(color = Group, shape = Group),
+    size = 3, stroke = 1, alpha = 0.7,
+    position = position_jitter(width = 0.2)
+  ) +
+  geom_smooth(method = "lm", se = TRUE, color = "black", size = 0.25) +
+  annotate("text",
+         x = max(sw_chimp_data$percEvergreen, na.rm = TRUE), 
+         y = min(sw_chimp_data$d13C, na.rm = TRUE),
+         hjust = 1, vjust = 0, size = 4,
+         label = paste0("Adj R² = ", cPE_r2, "\n", cPE_pval_label)) +
+  coord_cartesian(ylim = c(min(sw_chimp_data$d13C, na.rm = TRUE), NA)) +
+  theme_bw() +
+  theme(
+    axis.line = element_line(size = 0.5, color = "black"),
+    panel.background = element_blank(),
+    text = element_text(size = 13),
+    axis.text.x = element_text(color = "black", size = 13),
+    axis.text.y = element_text(color = "black", size = 13)
+  ) +
+  scale_fill_manual(values = group_colors) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  ylab(expression(paste(delta^{13}, "C (\u2030)"))) +
+  xlab("Percent Evergreen Forest (Savanna Sites)")
+
+d13c_SW_PE
+
+gg_ev1 <- d13c_PE + theme(legend.position = "none")
+gg_ev2 <- d13c_SW_PE + theme(
+  legend.position = "none",
+  axis.title.y = element_blank(),
+  axis.text.y  = element_blank(),
+  axis.ticks.y = element_blank()
+)
+  
+percent_evergreen_d13C <- gg_ev1 + gg_ev2
+percent_evergreen_d13C
+
+ggsave("Figure2_PercentEvergreen_d13C.png", percent_evergreen_d13C,
+       width = 8, height = 4, dpi = 300)
+
+chimp_data_noTai <- chimp_data %>%
+  filter(Group != "Tai")
+
+d13c_gam <- gam(d13C ~ s(treeCoverMax, k = 3), data = chimp_data_noTai)
+
+d13c_gam_summary <- summary(d13c_gam)
+d13c_gam_r2 <- round(d13c_gam_summary$r.sq, 3)
+d13c_edf <- round(d13c_gam_summary$s.table[1, "edf"], 2)
+d13c_gam_pval <- d13c_gam_summary$s.table[1, "p-value"]
+d13c_gam_pval_label <- if (d13c_gam_pval < 0.001) {
+  "p < 0.001"
+} else {
+  paste0("p = ", signif(d13c_gam_pval, 3))
+}
+
+d13c_pred_gam <- predict(d13c_gam,
+                         newdata = data.frame(treeCoverMax = d13c_seq),
+                         se.fit = TRUE)
+
+d13c_PTCm_gam <- ggplot(chimp_data_noTai, aes(x = treeCoverMax, y = d13C,
+                                              color = Group, shape = Group)) +
+  geom_point(size = 3) +
+  geom_line(data = data.frame(treeCoverMax = d13c_seq, d13C = d13c_pred_gam$fit),
+            aes(x = treeCoverMax, y = d13C), inherit.aes = FALSE,
+            color = "black", linewidth = 1.2) +
+  geom_ribbon(data = data.frame(treeCoverMax = d13c_seq,
+                                ymin = d13c_pred_gam$fit - 2 * d13c_pred_gam$se.fit,
+                                ymax = d13c_pred_gam$fit + 2 * d13c_pred_gam$se.fit),
+              aes(x = treeCoverMax, ymin = ymin, ymax = ymax),
+              inherit.aes = FALSE, fill = "black", alpha = 0.2) +
+  annotate("text",
+           x = min(d13c_seq),
+           y = max(chimp_data_noTai$d13C, na.rm = TRUE),
+           hjust = 0, vjust = 1, size = 3.5,
+           label = paste0("Adj R² = ", d13c_gam_r2,
+                          "\nEDF = ", d13c_edf,
+                          "\n", d13c_gam_pval_label)) +
+  scale_color_manual(values = group_colors) +
+  scale_shape_manual(values = group_shapes) +
+  labs(title = "", x = "Maximum Tree Canopy Cover (%)",
+       y = expression(paste(delta^{13}, "C (\u2030)"))) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 11),
+        axis.text = element_text(size = 10))
+
+d13c_PTCm_gam
+
+ggsave("Figure3_d13C_treeCoverMax_noTai.png",
+       plot = d13c_PTCm_gam,
+       width = 5.5, height = 4.5, dpi = 400)
+
+```

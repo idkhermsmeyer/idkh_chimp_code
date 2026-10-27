@@ -6,7 +6,7 @@ Isabel D.K. Hermsmeyer, Andrew D. Somerville, Jim J. Moore, McKensey R. Miller, 
 
 ## Files
 - IDKH_chimp_code.Rmd: R Markdown script for all statistical analyses, model comparison, and figures.
-- Chimp_data_20250325_worldclim_fin_SEA.csv: Main analysis dataset. One row per hair sample (n = 300) from 17 chimpanzee communities, with site-level environmental variables.
+- Chimp_data_full_worldclim_SEA_fin.csv: Main analysis dataset. One row per hair sample (n = 300) from 17 chimpanzee communities, with site-level environmental variables.
 
 ## Usage
 Place all files in the same folder and run IDKH_chimp_code.Rmd in R/RStudio.

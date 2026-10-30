@@ -5,8 +5,10 @@ Isabel D.K. Hermsmeyer, Andrew D. Somerville, Jim J. Moore, McKensey R. Miller, 
 . Ecological Solutions and Evidence (2026).
 
 ## Files
-- IDKH_chimp_code.Rmd: R Markdown script for all statistical analyses, model comparison, and figures.
-- Chimp_data_full_worldclim_SEA_fin.csv: Main analysis dataset. One row per hair sample (n = 300) from 17 chimpanzee communities, with site-level environmental variables.
+- IDKH_chimp_code.Rmd: R Markdown script for all statistical analyses, model comparison, isotopic niche (SIBER) analyses, and figures. Knit with all CSV files in the same folder; figures are saved to figures/ and output tables to output/.
+- Chimp_data_full_worldclim_SEA_fin.csv: Main analysis dataset. One row per hair sample (n = 279) from 17 chimpanzee communities (105 newly analyzed samples from this study and 174 from published studies; see Source column), with site-level environmental variables and isotopic niche space (SEA).
+- behavioral_diversity.csv: Site-level overall and foraging behavioral diversity indices for the 10 communities with available data (from Kalan et al., 2020; Fig. 5).
+- chimp_fossil_comp.csv: Enamel δ13C values (‰, corrected to a preindustrial [1750] atmospheric baseline) for modern chimpanzees and Miocene fossil hominoids, with sources (n = 57; Fig. 7).
 
 ## Usage
 Place all files in the same folder and run IDKH_chimp_code.Rmd in R/RStudio.
